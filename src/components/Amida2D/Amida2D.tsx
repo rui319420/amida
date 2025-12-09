@@ -2,38 +2,43 @@
 
 import React, { useEffect, useState, useRef } from "react";
 import { useAmida2D } from "./useAmida2D";
-import { Point } from "./types";
+import { Point, VerticalLine, HorizontalLine } from "./types";
 
-export default function Amida2D() {
-  const { verticalLines, horizontalLines, path, initializeAmida, startAmida } = useAmida2D();
+type Props = {
+  verticalLines: VerticalLine[];
+  horizontalLines: HorizontalLine[];
+  path: Point[];
+  startAmida: (index: number) => void;
+  initializeAmida: (count: number) => void;
+};
 
+export default function Amida2D({ 
+  verticalLines, 
+  horizontalLines, 
+  path, 
+  startAmida, 
+  initializeAmida 
+}: Props) {
+  
   const [walkerPos, setWalkerPos] = useState<Point | null>(null);
-
   const requestRef = useRef<number>(0);
-
-  useEffect(() => {
-    initializeAmida(5);
-  }, [initializeAmida]);
 
   useEffect(() => {
     if (path.length === 0) {
       setWalkerPos(null);
       return;
     }
-
-    let currentSegmentIndex = 0
+    let currentSegmentIndex = 0;
     let progress = 0;
-    const speed = 0.03;
+    const speed = 0.05;
 
     const animate = () => {
       if (currentSegmentIndex >= path.length - 1) {
         setWalkerPos(path[path.length - 1]);
         return;
       }
-
       const startP = path[currentSegmentIndex];
       const endP = path[currentSegmentIndex + 1];
-
       progress += speed;
 
       if (progress >= 1) {
@@ -45,20 +50,14 @@ export default function Amida2D() {
 
       const currentX = startP.x + (endP.x - startP.x) * progress;
       const currentY = startP.y + (endP.y - startP.y) * progress;
-
       setWalkerPos({ x: currentX, y: currentY });
-
       requestRef.current = requestAnimationFrame(animate);
     };
-
     requestRef.current = requestAnimationFrame(animate);
-
     return () => cancelAnimationFrame(requestRef.current);
   }, [path]);
 
-  const pathString = path
-    .map((p) => `${p.x * 100},${p.y * 100}`)
-    .join(" ");
+  const pathString = path.map((p) => `${p.x * 100},${p.y * 100}`).join(" ");
 
   return (
     <div className="amida-wrapper">
