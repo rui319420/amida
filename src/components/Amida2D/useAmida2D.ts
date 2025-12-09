@@ -36,11 +36,45 @@ export function useAmida2D() {
     setPath([]);
     setSelectedIndex(null);
   }, []);
+
+  const startAmida = useCallback((startIndex: number) => {
+    const sortedHLines = [...horizontalLines].sort((a, b) => a.y - b.y);
+
+    const newPath: Point[] = [];
+    let currentLineIndex = startIndex;
+    let currentY = 0;
+
+    newPath.push({ x: verticalLines[currentLineIndex].x, y: 0 });
+
+    for (const hLine of sortedHLines) {
+      if (hLine.y > currentY) {
+        if (hLine.leftLineIndex === currentLineIndex) {
+          newPath.push({ x: verticalLines[currentLineIndex].x, y: hLine.y });
+          newPath.push({ x: verticalLines[currentLineIndex + 1].x, y: hLine.y });
+          currentLineIndex = currentLineIndex + 1;
+          currentY = hLine.y;
+        }
+        else if (hLine.leftLineIndex === currentLineIndex - 1) {
+          newPath.push({ x: verticalLines[currentLineIndex].x, y: hLine.y });
+          newPath.push({ x: verticalLines[currentLineIndex - 1].x, y: hLine.y });
+          currentLineIndex = currentLineIndex - 1;
+          currentY = hLine.y;
+        }
+      }
+    }
+
+    newPath.push({ x: verticalLines[currentLineIndex].x, y: 1 });
+
+    setPath(newPath);
+    setSelectedIndex(startIndex);
+  }, [horizontalLines, verticalLines]);
+
   return { 
     verticalLines, 
     horizontalLines, 
     path, 
     selectedIndex, 
-    initializeAmida 
+    initializeAmida,
+    startAmida,
   };
 }
