@@ -4,11 +4,11 @@ import { VerticalLine, HorizontalLine, Point } from './types';
 export function useAmida2D() {
   const [verticalLines, setVerticalLines] = useState<VerticalLine[]>([]);
   const [horizontalLines, setHorizontalLines] = useState<HorizontalLine[]>([]);
-
   const [path, setPath] = useState<Point[]>([]);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
-  const initializeAmida = useCallback((lineCount: number = 5) => {
+  const initializeAmida = useCallback((memberNames: string[], bridgeCount: number) => {
+    const lineCount = memberNames.length;
 
     const newVerticalLines: VerticalLine[] = [];
     for (let i = 0; i < lineCount; i++) {
@@ -16,21 +16,27 @@ export function useAmida2D() {
         id: `v-${i}`,
         lineIndex: i,
         x: (i + 1) / (lineCount + 1),
+        name: memberNames[i]
       });
     }
 
     const newHorizontalLines: HorizontalLine[] = [];
-    for (let i = 0; i < lineCount - 1; i++) {
-      const numBridges = Math.floor(Math.random() * 3) + 2;
-      
-      for (let j = 0; j < numBridges; j++) {
+    if (lineCount > 1) {
+      for (let i = 0; i < bridgeCount; i++) {
+        const idx1 = Math.floor(Math.random() * lineCount);
+        let idx2 = Math.floor(Math.random() * lineCount);
+        while (idx1 === idx2) {
+          idx2 = Math.floor(Math.random() * lineCount);
+        }
         newHorizontalLines.push({
-          id: `h-${i}-${j}-${Date.now()}`,
-          leftLineIndex: i,
+          id: `h-${i}-${Date.now()}`,
+          index1: idx1,
+          index2: idx2,
           y: Math.random() * 0.8 + 0.1
         });
       }
     }
+
     setVerticalLines(newVerticalLines);
     setHorizontalLines(newHorizontalLines);
     setPath([]);
@@ -39,8 +45,8 @@ export function useAmida2D() {
 
   const startAmida = useCallback((startIndex: number) => {
     const sortedHLines = [...horizontalLines].sort((a, b) => a.y - b.y);
-
     const newPath: Point[] = [];
+    
     let currentLineIndex = startIndex;
     let currentY = 0;
 
@@ -48,23 +54,17 @@ export function useAmida2D() {
 
     for (const hLine of sortedHLines) {
       if (hLine.y > currentY) {
-        if (hLine.leftLineIndex === currentLineIndex) {
+        if (hLine.index1 === currentLineIndex || hLine.index2 === currentLineIndex) {
           newPath.push({ x: verticalLines[currentLineIndex].x, y: hLine.y });
-          newPath.push({ x: verticalLines[currentLineIndex + 1].x, y: hLine.y });
-          currentLineIndex = currentLineIndex + 1;
-          currentY = hLine.y;
-        }
-        else if (hLine.leftLineIndex === currentLineIndex - 1) {
-          newPath.push({ x: verticalLines[currentLineIndex].x, y: hLine.y });
-          newPath.push({ x: verticalLines[currentLineIndex - 1].x, y: hLine.y });
-          currentLineIndex = currentLineIndex - 1;
+          const nextIndex = (hLine.index1 === currentLineIndex) ? hLine.index2 : hLine.index1;
+          newPath.push({ x: verticalLines[nextIndex].x, y: hLine.y });
+          currentLineIndex = nextIndex;
           currentY = hLine.y;
         }
       }
     }
 
     newPath.push({ x: verticalLines[currentLineIndex].x, y: 1 });
-
     setPath(newPath);
     setSelectedIndex(startIndex);
   }, [horizontalLines, verticalLines]);
@@ -75,6 +75,6 @@ export function useAmida2D() {
     path, 
     selectedIndex, 
     initializeAmida,
-    startAmida,
+    startAmida
   };
 }

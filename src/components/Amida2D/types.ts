@@ -2,11 +2,13 @@ export type VerticalLine = {
   id: string;
   lineIndex: number;
   x: number;
+  name: string;
 }
 
 export type HorizontalLine = {
   id: string;
-  leftLineIndex: number;
+  index1: number;
+  index2: number;
   y: number;
 }
 

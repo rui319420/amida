@@ -2,15 +2,17 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { Canvas } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
+import { OrbitControls, Text } from "@react-three/drei";
 import { VerticalLine, HorizontalLine, Point } from "../Amida2D/types";
+import * as THREE from 'three';
 
 type Props = {
   verticalLines: VerticalLine[];
   horizontalLines: HorizontalLine[];
   path: Point[];
   startAmida: (index: number) => void;
-  initializeAmida: (count: number) => void;
+  initializeAmida: (names: string[], bridges: number) => void;
+  height: number;
 };
 
 export default function Amida3D({ 
@@ -18,26 +20,43 @@ export default function Amida3D({
   horizontalLines, 
   path,
   startAmida, 
-  initializeAmida 
+  initializeAmida,
+  height 
 }: Props) {
   
-  // ▼▼▼ 1. アニメーション用の状態管理（2Dと同じ仕組み） ▼▼▼
-  const [walkerPos, setWalkerPos] = useState<Point | null>(null);
+  const [walkerPos, setWalkerPos] = useState<[number, number, number] | null>(null);
   const requestRef = useRef<number>(0);
+
+  const RADIUS = 3;
+
+  const getPositionFromIndex = (index: number, yRatio: number): [number, number, number] => {
+    const count = verticalLines.length;
+    if (count === 0) return [0, 0, 0];
+    const angle = (index / count) * Math.PI * 2 + Math.PI / 2;
+    const x = Math.cos(angle) * RADIUS;
+    const z = Math.sin(angle) * RADIUS;
+    const y3d = (0.5 - yRatio) * height; 
+    return [x, y3d, z];
+  };
+
+  const getPositionFrom2DPoint = (p: Point): [number, number, number] => {
+    const count = verticalLines.length;
+    const index = Math.round(p.x * (count + 1) - 1);
+    return getPositionFromIndex(index, p.y);
+  };
 
   useEffect(() => {
     if (path.length === 0) {
       setWalkerPos(null);
       return;
     }
-
     let currentSegmentIndex = 0;
     let progress = 0;
     const speed = 0.05;
 
     const animate = () => {
       if (currentSegmentIndex >= path.length - 1) {
-        setWalkerPos(path[path.length - 1]);
+        setWalkerPos(getPositionFrom2DPoint(path[path.length - 1]));
         return;
       }
       const startP = path[currentSegmentIndex];
@@ -50,114 +69,119 @@ export default function Amida3D({
         requestRef.current = requestAnimationFrame(animate);
         return; 
       }
-
-      const currentX = startP.x + (endP.x - startP.x) * progress;
-      const currentY = startP.y + (endP.y - startP.y) * progress;
-      setWalkerPos({ x: currentX, y: currentY });
-      
+      const startVec = new THREE.Vector3(...getPositionFrom2DPoint(startP));
+      const endVec = new THREE.Vector3(...getPositionFrom2DPoint(endP));
+      const currentVec = startVec.lerp(endVec, progress);
+      setWalkerPos([currentVec.x, currentVec.y, currentVec.z]);
       requestRef.current = requestAnimationFrame(animate);
     };
     requestRef.current = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(requestRef.current);
-  }, [path]);
-
-
-  // ▼▼▼ 2. 座標変換のヘルパー関数 ▼▼▼
-  // 2Dのデータ (x:0~1, y:0~1) を 3D空間の座標 (x:-5~5, y:4~-4) に変換
-  const to3D = (x: number, y: number) => {
-    const scaleX = 10; // 横幅の広がり
-    const scaleY = 8;  // 縦幅の広がり
-    return [
-      (x - 0.5) * scaleX,  // X: 0.5を中心にして左右に広げる
-      (0.5 - y) * scaleY,  // Y: 上(0)がプラス、下(1)がマイナスになるように反転
-      0                    // Z: 奥行きは0
-    ] as [number, number, number];
-  };
+  }, [path, height]);
 
   return (
-    <div className="amida-wrapper">
-      <div className="amida-board" style={{ background: '#222' }}>
-        <Canvas camera={{ position: [0, 0, 12], fov: 50 }}>
+    <div className="amida-wrapper" style={{ width: '100%' }}> 
+      <div 
+        className="amida-board" 
+        style={{ 
+          background: '#222', 
+          width: '100%', 
+          maxWidth: '600px',
+          height: '80vh',
+        }}
+      >
+        <Canvas camera={{ position: [0, 10, 20], fov: 45 }}>
           <color attach="background" args={['#222']} />
-          
           <ambientLight intensity={0.5} />
           <directionalLight position={[10, 10, 5]} intensity={1} />
           <OrbitControls />
 
-          {/* A. 縦線の描画 */}
           {verticalLines.map((line) => {
-            const [x, y, z] = to3D(line.x, 0.5); // 中心位置
+            const [x, y, z] = getPositionFromIndex(line.lineIndex, 0.5);
+            const [topX, topY, topZ] = getPositionFromIndex(line.lineIndex, 0);
+
             return (
-              <mesh key={line.id} position={[x, y, z]}>
-                {/* 縦に長い円柱 */}
-                <cylinderGeometry args={[0.1, 0.1, 8, 16]} />
-                <meshStandardMaterial color="#fb8c00" />
-              </mesh>
+              <group key={line.id}>
+                <mesh position={[x, y, z]}>
+                  <cylinderGeometry args={[0.1, 0.1, height, 16]} />
+                  <meshStandardMaterial color="#fb8c00" />
+                </mesh>
+                
+                <Text
+                  position={[topX, topY + 1, topZ]}
+                  fontSize={0.8}
+                  color="white"
+                  anchorX="center"
+                  anchorY="middle"
+                  outlineWidth={0.05}
+                  outlineColor="#000"
+                >
+                  {line.name}
+                </Text>
+              </group>
             );
           })}
 
-          {/* B. 横線の描画 */}
           {horizontalLines.map((hLine) => {
-            const leftV = verticalLines[hLine.leftLineIndex];
-            const rightV = verticalLines[hLine.leftLineIndex + 1];
-            if (!leftV || !rightV) return null;
-
-            // 3D座標に変換
-            const startPos = to3D(leftV.x, hLine.y);
-            const endPos = to3D(rightV.x, hLine.y);
-
-            // 横線の中心位置
+            const startPos = getPositionFromIndex(hLine.index1, hLine.y);
+            const endPos = getPositionFromIndex(hLine.index2, hLine.y);
             const centerX = (startPos[0] + endPos[0]) / 2;
             const centerY = startPos[1];
-            
-            // 横線の長さ
-            const width = Math.abs(endPos[0] - startPos[0]);
+            const centerZ = (startPos[2] + endPos[2]) / 2;
+            const dist = Math.sqrt(
+              Math.pow(endPos[0] - startPos[0], 2) + 
+              Math.pow(endPos[2] - startPos[2], 2)
+            );
+            const angle = Math.atan2(endPos[2] - startPos[2], endPos[0] - startPos[0]);
 
             return (
               <mesh 
                 key={hLine.id} 
-                position={[centerX, centerY, 0]} 
-                rotation={[0, 0, Math.PI / 2]} // 90度回転させて横向きにする
+                position={[centerX, centerY, centerZ]} 
+                rotation={[0, -angle, Math.PI / 2]}
               >
-                <cylinderGeometry args={[0.05, 0.05, width, 8]} />
+                <cylinderGeometry args={[0.05, 0.05, dist, 8]} />
                 <meshStandardMaterial color="#fff" />
               </mesh>
             );
           })}
 
-          {/* C. 動くボール（プレイヤー）の描画 */}
           {walkerPos && (
-            <mesh position={to3D(walkerPos.x, walkerPos.y)}>
-              <sphereGeometry args={[0.3, 32, 32]} />
+            <mesh position={walkerPos}>
+              <sphereGeometry args={[0.5, 32, 32]} />
               <meshStandardMaterial color="red" emissive="red" emissiveIntensity={0.5} />
             </mesh>
           )}
 
         </Canvas>
       </div>
-
-      <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+      <div style={{ 
+        display: 'flex', 
+        gap: '10px', 
+        justifyContent: 'center', 
+        flexWrap: 'wrap',
+        maxWidth: '800px'
+      }}>
          {verticalLines.map((line) => (
           <button 
             key={line.id} 
             onClick={() => startAmida(line.lineIndex)}
             style={{
-              padding: '5px 10px',
+              padding: '8px 16px',
               cursor: 'pointer',
               backgroundColor: '#fb8c00',
               color: 'white',
               border: 'none',
-              borderRadius: '4px'
+              borderRadius: '20px',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
             }}
           >
-            {line.lineIndex + 1}
+            {line.name} でスタート
           </button>
         ))}
       </div>
-      
-      <button className="reset-button" onClick={() => initializeAmida(5)}>
-        リセット
-      </button>
     </div>
   );
 }

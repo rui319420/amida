@@ -1,7 +1,6 @@
-'use client'
-
+// ... (imports はそのまま)
 import React, { useEffect, useState, useRef } from "react";
-import { useAmida2D } from "./useAmida2D";
+// ...
 import { Point, VerticalLine, HorizontalLine } from "./types";
 
 type Props = {
@@ -9,7 +8,7 @@ type Props = {
   horizontalLines: HorizontalLine[];
   path: Point[];
   startAmida: (index: number) => void;
-  initializeAmida: (count: number) => void;
+  initializeAmida: (names: string[], bridges: number) => void;
 };
 
 export default function Amida2D({ 
@@ -19,7 +18,6 @@ export default function Amida2D({
   startAmida, 
   initializeAmida 
 }: Props) {
-  
   const [walkerPos, setWalkerPos] = useState<Point | null>(null);
   const requestRef = useRef<number>(0);
 
@@ -47,7 +45,6 @@ export default function Amida2D({
         requestRef.current = requestAnimationFrame(animate);
         return; 
       }
-
       const currentX = startP.x + (endP.x - startP.x) * progress;
       const currentY = startP.y + (endP.y - startP.y) * progress;
       setWalkerPos({ x: currentX, y: currentY });
@@ -61,7 +58,7 @@ export default function Amida2D({
 
   return (
     <div className="amida-wrapper">
-      <div style={{ display: 'flex', width: '100%', maxWidth: '500px', height: '40px', position: 'relative' }}>
+      <div style={{ display: 'flex', width: '100%', maxWidth: '500px', height: '60px', position: 'relative' }}>
         {verticalLines.map((line) => (
           <button
             key={line.id}
@@ -70,23 +67,24 @@ export default function Amida2D({
               position: 'absolute',
               left: `${line.x * 100}%`,
               transform: 'translateX(-50%)',
-              padding: '5px 10px',
+              padding: '4px 8px',
               cursor: 'pointer',
               backgroundColor: '#ff5722',
               color: 'white',
               border: 'none',
               borderRadius: '4px',
-              fontSize: '12px'
+              fontSize: '11px',
+              whiteSpace: 'nowrap'
             }}
           >
-            Start
+            {line.name}
+            <br/>Start
           </button>
         ))}
       </div>
 
       <div className="amida-board">
         <svg viewBox="0 0 100 100" style={{ width: '100%', height: '100%' }}>
-          
           {verticalLines.map((line) => (
             <line
               key={line.id}
@@ -95,47 +93,38 @@ export default function Amida2D({
               stroke="#ddd" strokeWidth="0.5"
             />
           ))}
-
           {horizontalLines.map((hLine) => {
-            const leftV = verticalLines[hLine.leftLineIndex];
-            const rightV = verticalLines[hLine.leftLineIndex + 1];
-            if (!leftV || !rightV) return null;
+            const line1 = verticalLines.find(v => v.lineIndex === hLine.index1);
+            const line2 = verticalLines.find(v => v.lineIndex === hLine.index2);
+            if (!line1 || !line2) return null;
             return (
-              <line
-                key={hLine.id}
-                x1={leftV.x * 100} y1={hLine.y * 100}
-                x2={rightV.x * 100} y2={hLine.y * 100}
-                stroke="#ddd" strokeWidth="0.5"
-              />
+              <g key={hLine.id}>
+                <line
+                  x1={line1.x * 100} y1={hLine.y * 100}
+                  x2={line2.x * 100} y2={hLine.y * 100}
+                  stroke="#333" strokeWidth="0.5"
+                />
+                <circle cx={line1.x * 100} cy={hLine.y * 100} r="1" fill="#333" />
+                <circle cx={line2.x * 100} cy={hLine.y * 100} r="1" fill="#333" />
+              </g>
             );
           })}
-
           {path.length > 0 && (
             <polyline
               points={pathString}
-              stroke="rgba(255, 0, 0, 0.2)"
-              strokeWidth="1"
+              stroke="rgba(255, 0, 0, 0.3)"
+              strokeWidth="1.5"
               fill="none"
               strokeLinecap="round"
               strokeLinejoin="round"
             />
           )}
-
           {walkerPos && (
-            <circle
-              cx={walkerPos.x * 100}
-              cy={walkerPos.y * 100}
-              r="2"
-              fill="red"
-            />
+            <circle cx={walkerPos.x * 100} cy={walkerPos.y * 100} r="2" fill="red" />
           )}
-
         </svg>
       </div>
-
-      <button className="reset-button" onClick={() => initializeAmida(5)}>
-        あみだくじをリセット
-      </button>
+      
     </div>
   );
 }
