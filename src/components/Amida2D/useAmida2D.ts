@@ -1,14 +1,18 @@
 import { useState, useCallback } from "react";
-import { VerticalLine, HorizontalLine, Point } from './types';
+import { VerticalLine, HorizontalLine, Point, WalkerPath } from './types';
 
 export function useAmida2D() {
   const [verticalLines, setVerticalLines] = useState<VerticalLine[]>([]);
   const [horizontalLines, setHorizontalLines] = useState<HorizontalLine[]>([]);
-  const [path, setPath] = useState<Point[]>([]);
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [paths, setPaths] = useState<WalkerPath[]>([]);
+  const [goals, setGoals] = useState<string[]>([]);
 
   const initializeAmida = useCallback((memberNames: string[], bridgeCount: number) => {
     const lineCount = memberNames.length;
+    const colors = [
+      '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', 
+      '#00ffff', '#ffa500', '#800080', '#008000', '#ffc0cb'
+    ];
 
     const newVerticalLines: VerticalLine[] = [];
     for (let i = 0; i < lineCount; i++) {
@@ -16,7 +20,8 @@ export function useAmida2D() {
         id: `v-${i}`,
         lineIndex: i,
         x: (i + 1) / (lineCount + 1),
-        name: memberNames[i]
+        name: memberNames[i],
+        color: colors[i % colors.length]
       });
     }
 
@@ -37,13 +42,15 @@ export function useAmida2D() {
       }
     }
 
+    const newGoals = Array(lineCount).fill(null).map(() => Math.random() > 0.5 ? "1" : "2");
+
     setVerticalLines(newVerticalLines);
     setHorizontalLines(newHorizontalLines);
-    setPath([]);
-    setSelectedIndex(null);
+    setGoals(newGoals);
+    setPaths([]);
   }, []);
 
-  const startAmida = useCallback((startIndex: number) => {
+  const calculatePath = (startIndex: number): Point[] => {
     const sortedHLines = [...horizontalLines].sort((a, b) => a.y - b.y);
     const newPath: Point[] = [];
     
@@ -65,16 +72,34 @@ export function useAmida2D() {
     }
 
     newPath.push({ x: verticalLines[currentLineIndex].x, y: 1 });
-    setPath(newPath);
-    setSelectedIndex(startIndex);
+    return newPath;
+  };
+
+  const startAmida = useCallback((startIndex: number) => {
+    const pathPoints = calculatePath(startIndex);
+    setPaths([{
+      lineId: verticalLines[startIndex].id,
+      color: verticalLines[startIndex].color,
+      points: pathPoints
+    }]);
+  }, [horizontalLines, verticalLines]);
+
+  const startAllAmida = useCallback(() => {
+    const newPaths: WalkerPath[] = verticalLines.map(line => ({
+      lineId: line.id,
+      color: line.color,
+      points: calculatePath(line.lineIndex)
+    }));
+    setPaths(newPaths);
   }, [horizontalLines, verticalLines]);
 
   return { 
     verticalLines, 
     horizontalLines, 
-    path, 
-    selectedIndex, 
+    paths,
+    goals,
     initializeAmida,
-    startAmida
+    startAmida,
+    startAllAmida
   };
 }

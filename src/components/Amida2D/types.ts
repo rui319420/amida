@@ -3,6 +3,7 @@ export type VerticalLine = {
   lineIndex: number;
   x: number;
   name: string;
+  color: string;
 }
 
 export type HorizontalLine = {
@@ -15,4 +16,10 @@ export type HorizontalLine = {
 export type Point = {
   x: number;
   y: number;
+}
+
+export type WalkerPath = {
+  lineId: string;
+  color: string;
+  points: Point[];
 }
